@@ -4,7 +4,7 @@ namespace App\View\Components;
 
 use Illuminate\View\Component;
 
-class question-form extends Component
+class questionForm extends Component
 {
     /**
      * Create a new component instance.
