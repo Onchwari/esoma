@@ -201,4 +201,16 @@ Route::get('/aboutus', function(){
 Route::get('/eclassroom', function(){
     return view('eclassroom', ['title'=>'Eclassroom Page']);
 });
+Route::get('/elibrary', function(){
+    return view('elibrary', ['title'=>'Elibrary Page']);
+});
+Route::get('/subscriptions', function(){
+    return view('subscriptions', ['title'=>'Subscriptions Page']);
+});
+Route::get('/userdashboard', function(){
+    return view('userdashboard', ['title'=>'Userdashboard Page']);
+});
+Route::get('/viewsubscriptions', function(){
+    return view('viewsubscriptions', ['title'=>'viewsubscriptions Page']);
+});
 
