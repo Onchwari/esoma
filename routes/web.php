@@ -10,12 +10,16 @@ use App\Http\Controllers\SchoolController;
 use App\Http\Controllers\SchoolTeacherController;
 use App\Http\Controllers\SchoolLevelController;
 use App\Http\Controllers\SubjectController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PostController;
+use App\Http\Controllers\BlogController;
 use Illuminate\Support\Facades\DB;
 use App\Models\Uploadeddoc;
 use App\Http\Controllers\ClassLevelController;
 use App\Http\Controllers\FileController;
+use App\Http\Controllers\SubscriptionController;
 use App\Models\ClassLevel;
+use App\Models\Payment;
 use App\Models\SchoolLevel;
 use App\Models\SubjectLevel;
 
@@ -32,6 +36,8 @@ use App\Models\SubjectLevel;
 
 Route::domain('blog.'.env('APP_URL'))->name('blog.')->group(function(){
     Route::resource('posts', PostController::class);
+    Route::get('/', [BlogController::class, 'index'])->name('index');
+    Route::get('/{id}', [BlogController::class, 'show'])->name('show');
 });
 
 
@@ -45,11 +51,35 @@ Route::get('/classroom', function () {
     return view('eclassroom/classroom_dashboard', ['title' => 'EClassroom']);
 });
 
+Route::get('/elib/{id}/{subid}', [SchoolLevelController::class, 'showSubject']);
+
+
+Route::get('/elibrary/pp1/1', function(){
+    return view('elib/user/show');
+});
+
+Route::get('/elibrary/pp1/1', function () {
+    return view('elib/user/show');
+});
+
+
+
+Route::get('/aboutus', function () {
+    return view('aboutus', ['title' => 'Aboutus Page']);
+});
+
+
+Route::get('/elib/{id}', [SchoolLevelController::class, 'show']);
+
+Route::middleware(['auth'])->group(function(){
+
 Route::get('/classroom/student', [ClassroomController::class, 'index']);
 
 Route::get('/classroom/student/{id}', [ClassroomController::class, 'show']);
 Route::put('/classroom', [ClassroomController::class, 'update']);
 Route::post('/classroom', [SchoolController::class, 'store']);
+Route::post('/classroom/enroll', [ClassroomController::class, 'enroll']);
+
 
 
 Route::get('/classroom/student/{id}/uploads', [UploadController::class, 'show']);
@@ -66,23 +96,40 @@ Route::post('/assignments/submit', [AssignmentController::class, 'check']);
 Route::post('/assignments/delete', [AssignmentController::class, 'delete']);
 Route::get('/test', [AssignmentController::class, 'test']);
 
+Route::post('/upload/delete', [UploadController::class, 'delete']);
+Route::post('/upload/update', [UploadController::class, 'update']);
+
+
 
 
 Route::get('/classroom/school/students', [SchoolController::class, 'student_management']);
 Route::get('/classroom/school/teachers', [SchoolController::class, 'teacher_management']);
-
-Route::get('/classroom/school', [SchoolController::class, 'allClassrooms']);
+Route::get('/classroom/school/register', function(){return view('eclassroom/school/register');});
+Route::post('/classroom/school/register', [SchoolController::class, 'register']);
+Route::get('/classroom/school', [SchoolController::class, 'allClassrooms'])->middleware('has_classroom');
 Route::get('/classroom/school/{id}', [SchoolController::class, 'showClassroom']); 
 
-Route::get('/classroom/teacher/', [TeacherController ::class, 'showSchools']);
-Route::get('/classroom/teacher/school/{id}', [TeacherController ::class, 'index']);
-Route::get('/classroom/teacher/{id}', [TeacherController ::class, 'show']);
-Route::get('/classroom/teacher/{id}/assignments', [TeacherController ::class, 'showAllAssignments']);
-Route::get('/classroom/teacher/{classID}/assignments/create', [TeacherController ::class, 'store']);
-Route::get('/classroom/teacher/{classID}/assignments/{assignmentID}', [TeacherController ::class, 'showAssignment']);
+Route::get('/classroom/teacher/', [TeacherController::class, 'showSchools'])->middleware('is_teacher');
+Route::get('/classroom/teacher/register', function(){return view('eclassroom/teacher/register');});
+Route::post('/classroom/teacher/register', [TeacherController::class, 'register']);
+Route::get('/classroom/teacher/school/{id}', [TeacherController::class, 'index']);
+Route::get('/classroom/teacher/{id}', [TeacherController::class, 'show']);
+Route::get('/classroom/teacher/{id}/assignments', [TeacherController::class, 'showAllAssignments']);
+Route::get('/classroom/teacher/{id}/upload', [UploadController ::class, 'create']);
+Route::get('/classroom/teacher/{classID}/assignments/create', [TeacherController::class, 'store']);
+Route::get('/classroom/teacher/{classID}/assignments/{assignmentID}', [TeacherController::class, 'showAssignment']);
+
 
 
 Route::get('/classroom/ass', function(){return view('eclassroom/teacher/assignments/store');});
+
+
+
+Route::get('/dashboard', [DashboardController::class, 'index']);
+Route::get('/dashboard/activate', [DashboardController::class, 'activate']);
+
+Route::post('/subscribe', [SubscriptionController::class, 'subscribe']);
+
 
 
 // Components
@@ -108,9 +155,11 @@ Route::get('/classroom/students/{classID}', function ($classID) {
     return view('components/students-table', ['students' => $students]);
 });
 Route::get('/classroom/uploads/{classID}', function ($classID) {
-
-    $uploads = Uploadeddoc::all();
-    return view('components/class-uploads', ['uploads' => $uploads]);
+    $work= DB::table('uploadeddocs')
+    ->join('classrooms','uploadeddocs.classroom_id','=','id')
+    ->where('uploadeddocs.classroom_id',$classID)
+    ->select('name','doc')
+    ->get();
 });
 
 Route::get('/upload', [UploadController::class, 'create']);
@@ -126,65 +175,52 @@ Route::get('/welcome', function () {
 
 
 
-Route::get('/elibrary/pp1/1', function () {
-    return view('elib/user/show');
-});
-
-Route::get('/aboutus', function () {
-    return view('aboutus', ['title' => 'Aboutus Page']);
-});
 
 
-Route::get('elib/', function () {
-    $id = 6;
-    $schools = SchoolLevel::all();
+Route::get('/adminview', [SchoolLevelController::class, 'adminview']);
 
-    $classes = DB::table('class_level')
-        ->join('school_level', 'school_level.id', '=', 'class_level.school_level_id')
-        ->select('class_level.*')
-        ->get();
-    $subjects = DB::table('subjects')
-        ->join('class_level', 'class_level.id', '=', 'subjects.class_level_id')
-        ->select('subjects.*')
-        ->where('subjects.class_level_id', $id)
-        ->get();
-    $classtitle = DB::table('class_level')
-        ->select('class_level.*')
-        ->where('class_level.id', $id)
-        ->get();
-    $schooltitle = DB::table('school_level')
-        ->join('class_level', 'class_level.school_level_id', '=', 'school_level.id')
-        ->select('school_level.*')
-        ->where('class_level.id', $id)
-        ->get();
-    $fileuploads = DB::table('file_uploads')
-        ->join('subjects', 'subjects.id', '=', 'file_uploads.subject_id')
-        ->join('class_level', 'class_level.id', '=', 'subjects.class_level_id')
-        ->select('file_uploads.*')
-        ->where('class_level.id', $id)
-        ->get();
-    return view('elib/user/libuser_dash', compact('schools', 'classes', 'subjects', 'classtitle', 'schooltitle','fileuploads'));
-});
 
-Route::get('/elib/{id}', [SchoolLevelController::class, 'show']);
 Route::get('/admin', [SchoolLevelController::class, 'uploadpage']);
+
+
 Route::post('/addschool', [SchoolLevelController::class, 'store']);
+Route::post('/editschool/{id}', [SchoolLevelController::class, 'update']);
+Route::post('/school/delete', [SchoolLevelController::class, 'delete']);
+
+
+
 Route::post('/addclass', [ClassLevelController::class, 'store']);
+Route::post('/editclass/{id}', [ClassLevelController::class, 'update']);
+
+Route::post('/libclass/delete', [ClassLevelController::class, 'delete']);
+
+
+
+Route::post('/addschool', [SchoolLevelController::class, 'store']);
+Route::post('/editschool/{id}', [SchoolLevelController::class, 'update']);
+Route::post('/school/delete', [SchoolLevelController::class, 'delete']);
+
+
+Route::post('/addclass', [ClassLevelController::class, 'store']);
+Route::post('/editclass/{id}', [ClassLevelController::class, 'update']);
+
+Route::post('/libclass/delete', [ClassLevelController::class, 'delete']);
+
+
 Route::post('/addsubject', [SubjectController::class, 'store']);
+Route::post('/editsubject/{id}', [SubjectController::class, 'update']);
+
+Route::post('/subject/delete', [SubjectController::class, 'delete']);
+
 Route::post('/addfile', [FileController::class, 'store']);
+Route::post('/editfile/{id}', [FileController::class, 'update']);
 
-Route::get('/elib/{id}/{subid}', [SchoolLevelController::class, 'showsub']);
+Route::post('/fileupload/delete', [FileController::class, 'delete']);
 
-Route::get('/eclassroom', function () {
-    return view('eclassroom', ['title' => 'Eclassroom Page']);
-});
-Route::get('/elib', function(){
-    return view('elib/user/libuser_dash');
-});
+Route::post('/fileupload/delete', [FileController::class, 'delete']);
 
-Route::get('/elibrary/pp1/1', function(){
-    return view('elib/user/show');
-});
+
+
 //live search
 Route::post('/students/search', [SchoolController::class, 'searchStudent'])->name('students-search');
 
@@ -213,4 +249,24 @@ Route::get('/userdashboard', function(){
 Route::get('/viewsubscriptions', function(){
     return view('viewsubscriptions', ['title'=>'viewsubscriptions Page']);
 });
+
+Route::get('/sign-up', function(){
+    return view('authentication/sign-up');
+});
+
+Route::get('/sign-in', function(){
+    return view('authentication/sign-in');
+});
+
+
+Route::get('/view-subscription', function(){
+    return view('dashboard/view-subscription');
+});
+
+Route::get('/view-payment-history', function(){
+    return view('dashboard/view-payment-history');
+});
+
+});
+require __DIR__.'/auth.php';
 
